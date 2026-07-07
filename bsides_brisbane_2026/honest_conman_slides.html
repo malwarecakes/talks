@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Honest Conman</title>
+<!--
+====================================================================
+THE HONEST CONMAN — BSides deck.  Self-contained. No build step.
+====================================================================
+NAV:  →  / Space / click = next      ←  = previous
+      Home / End = first / last       F = fullscreen
+      N = toggle speaker note          O = toggle overview grid
+
+EDIT SLIDES:  scroll to the SLIDES array near the bottom of <script>.
+  Each slide is one object. Fields:
+    act:    1-4  (sets the era label + accent colour on the rail)
+    rail:   optional per-slide rail-label override (string). Falls back to the act's
+            default label when absent. Accent still comes from act. Used to give the
+            Lanley-Levers slides "THE CON · the levers of influence" while the breach
+            run keeps "THE CON · 2023, at the helpdesk". Auto-copies to triptych focus steps.
+    kind:   'title' | 'stmt' | 'thesis' | 'image' | 'levers' | 'map' | 'final'
+    eyebrow:small mono label, top-left (optional)
+    line:   the big line (string, or array of strings stacked)
+    sub:    small line under it (optional)
+    year:   '2023' etc — shows a big mono year stamp (optional)
+    img:    'lanley.jpg'  -> looks in same folder. If omitted, shows a
+            labelled placeholder so the deck is complete without images.
+    imgLabel: text shown inside the placeholder frame
+    pins:   (map kind only) how many roster pins are lit
+    note:   speaker cue, hidden until you press N
+
+ADD IMAGES:  drop the file next to this .html and set  img:'name.jpg'.
+COPYRIGHT:   no Monorail song lyrics on any slide. Stays that way.
+OFFLINE:     fonts load from Google. For conference wifi-free safety,
+             rehearse once online so the browser caches them, or swap
+             the <link> for local font files.
+====================================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1020;
+    --bg2:#16182E;
+    --ink:#F4EFE6;
+    --dim:#8A8DA8;
+    --past:#F2A641;     /* amber  — act 1 */
+    --present:#E8643C;  /* coral  — act 2 */
+    --future:#4FD6E0;   /* cyan   — act 3 & 4 */
+    --accent:var(--past);
+    --rail:#2A2D4A;
+    --disp:'Unbounded',system-ui,sans-serif;
+    --body:'Space Grotesk',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  /* Akbar accent — Simpsons display face. Drop akbar.ttf next to this file.
+     Falls back to Unbounded if the font is absent, so nothing breaks. */
+  @font-face{ font-family:'Akbar'; src:url('akbar.ttf') format('truetype'); font-display:swap; }
+  .line.akbar{ font-family:'Akbar',var(--disp); font-weight:400; letter-spacing:0; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--body);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* stage scales a fixed 16:9 canvas to the viewport */
+  #stage{position:fixed;inset:0;display:grid;place-items:center}
+  #canvas{
+    position:relative;
+    width:100vw;height:56.25vw;
+    max-height:100vh;max-width:177.78vh;
+    background:
+      radial-gradient(120% 90% at 50% -10%, #1B1E3A 0%, var(--bg) 55%, #090A16 100%);
+    overflow:hidden;
+  }
+  /* faint temporal grain + horizon */
+  #canvas::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:radial-gradient(rgba(255,255,255,.025) 1px,transparent 1px);
+    background-size:3px 3px;mix-blend-mode:screen;opacity:.5;
+  }
+
+  .slide{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:7.5% 9% 11%;
+    opacity:0;visibility:hidden;
+    transform:translateY(1.4vw) scale(.992);
+    filter:blur(6px);
+    transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.2,1),filter .5s ease;
+  }
+  .slide.active{opacity:1;visibility:visible;transform:none;filter:none}
+
+  .eyebrow{
+    font-family:var(--mono);font-size:1.15vw;letter-spacing:.32em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:2.2vw;
+    display:flex;align-items:center;gap:.9vw;
+  }
+  .eyebrow::before{content:"";width:2.6vw;height:2px;background:var(--accent);opacity:.8}
+
+  .line{
+    font-family:var(--disp);font-weight:800;color:var(--ink);
+    font-size:4.6vw;line-height:1.04;letter-spacing:-.01em;
+    max-width:24ch;text-wrap:balance;
+  }
+  .line .glow{color:var(--accent)}
+  .line.small{font-size:3.4vw;max-width:30ch}
+  .sub{
+    font-family:var(--body);font-weight:500;color:var(--dim);
+    font-size:1.7vw;margin-top:2.4vw;max-width:42ch;line-height:1.35;
+  }
+
+  /* TITLE */
+  .slide.title .kicker{font-family:var(--mono);font-size:1.2vw;letter-spacing:.3em;color:var(--past);text-transform:uppercase;margin-bottom:3vw}
+  .slide.title .line{font-size:7.6vw;line-height:.95;letter-spacing:-.02em}
+  .slide.title .sub{font-size:2vw;color:var(--ink);opacity:.85;margin-top:3vw;font-weight:400}
+  .slide.title .meta{font-family:var(--mono);font-size:1.15vw;color:var(--dim);margin-top:4.5vw;letter-spacing:.12em}
+
+  /* THESIS — centred, oversized */
+  .slide.thesis{align-items:center;text-align:center}
+  .slide.thesis .line{font-size:6.6vw;max-width:18ch;line-height:1.0}
+
+  /* FINAL — black */
+  .slide.final{align-items:center;text-align:center;background:#000}
+  .slide.final .line{font-size:5.2vw;max-width:20ch;font-weight:700}
+
+  /* YEAR stamp */
+  .yearstamp{
+    position:absolute;top:7%;right:9%;
+    font-family:var(--mono);font-weight:700;font-size:6vw;color:var(--accent);
+    opacity:.18;letter-spacing:-.02em;
+  }
+
+  /* IMAGE / temporal viewport placeholder */
+  .slide.image{padding:6% 8% 11%}
+  .viewport{
+    position:relative;flex:1;border:2px solid var(--rail);border-radius:10px;
+    background:linear-gradient(180deg,#0a0b16,#12142a);
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.03),inset 0 0 120px rgba(0,0,0,.6);
+  }
+  .viewport img{width:100%;height:100%;object-fit:contain;display:block}
+  .viewport .scan{position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 4px)}
+  .viewport .ph{display:flex;flex-direction:column;align-items:center;gap:1.4vw;color:var(--dim);text-align:center;padding:4vw}
+  .viewport .ph .play{font-size:3.4vw;color:var(--accent);opacity:.7}
+  .viewport .ph .lbl{font-family:var(--mono);font-size:1.5vw;letter-spacing:.18em;text-transform:uppercase;color:var(--ink)}
+  .viewport .ph .hint{font-family:var(--mono);font-size:1vw;letter-spacing:.25em;color:var(--dim);text-transform:uppercase}
+  .img-cap{font-family:var(--body);font-size:1.6vw;color:var(--dim);margin-top:1.6vw;text-align:center;font-weight:500}
+
+  /* LEVERS */
+  .slide.levers .eyebrow{margin-bottom:3vw}
+  .levergrid{display:flex;flex-wrap:wrap;gap:1vw 2.4vw;max-width:34ch}
+  .lever{font-family:var(--disp);font-weight:700;font-size:4.4vw;color:var(--ink);line-height:1}
+  .lever .dot{color:var(--accent)}
+
+  /* MAP */
+  .slide.map .maptitle{font-family:var(--disp);font-weight:800;font-size:3.4vw;max-width:20ch;margin-bottom:1vw}
+  .maprows{display:flex;flex-direction:column;gap:1.5vw;margin-top:2vw}
+  .pin{display:flex;align-items:baseline;gap:1.4vw;opacity:.16;transition:opacity .45s ease}
+  .pin.lit{opacity:1}
+  .slide.map .maprow-wrap{display:flex;gap:2.5vw;flex:1;align-items:stretch;width:100%}
+  .slide.map .maprow-wrap .viewport{flex:1.5}
+  .slide.map .maprow-wrap .maprows{flex:1;margin-top:0;justify-content:center}
+  .pin .yr{font-family:var(--mono);font-weight:700;font-size:1.5vw;color:var(--present);min-width:5ch}
+  .pin .who{font-family:var(--disp);font-weight:700;font-size:2.6vw;color:var(--ink)}
+  .pin .dot{width:.9vw;height:.9vw;border-radius:50%;background:var(--present);align-self:center;
+    box-shadow:0 0 14px var(--present)}
+
+  /* ===== RAIL (signature) ===== */
+  #rail{
+    position:absolute;left:0;right:0;bottom:0;height:11%;
+    padding:0 9%;display:flex;align-items:center;
+    pointer-events:none;
+  }
+  #railtrack{position:relative;flex:1;height:2px;background:var(--rail);}
+  #railticks{position:absolute;inset:0;display:flex;justify-content:space-between}
+  #railticks i{width:1px;height:7px;background:var(--rail);transform:translateY(-3px)}
+  #railnode{
+    position:absolute;top:50%;width:1vw;height:1vw;border-radius:50%;
+    background:var(--accent);transform:translate(-50%,-50%);
+    box-shadow:0 0 18px var(--accent),0 0 40px var(--accent);
+    transition:left .5s cubic-bezier(.2,.7,.2,1),background .5s ease,box-shadow .5s ease;
+  }
+  #railnode::after{content:"";position:absolute;left:50%;top:50%;width:3vw;height:1px;
+    background:linear-gradient(90deg,transparent,var(--accent));transform:translate(-100%,-50%);opacity:.7}
+  .railmeta{font-family:var(--mono);font-size:1vw;letter-spacing:.18em;text-transform:uppercase;white-space:nowrap}
+  #era{color:var(--accent);margin-right:2vw}
+  #counter{color:var(--dim);margin-left:2vw}
+
+  /* SPEAKER NOTE */
+  #note{
+    position:absolute;left:9%;right:9%;bottom:12.5%;
+    font-family:var(--mono);font-size:1.05vw;line-height:1.5;color:var(--future);
+    background:rgba(8,9,20,.85);border-left:3px solid var(--future);
+    padding:1.2vw 1.6vw;display:none;backdrop-filter:blur(4px);
+  }
+  #note.show{display:block}
+  #note b{color:var(--ink);font-weight:700}
+
+  /* OVERVIEW */
+  #overview{position:fixed;inset:0;background:#06070F;z-index:50;display:none;
+    grid-template-columns:repeat(5,1fr);gap:10px;padding:24px;overflow:auto;align-content:start}
+  #overview.show{display:grid}
+  .ov{aspect-ratio:16/9;background:var(--bg2);border:1px solid var(--rail);border-radius:6px;
+    padding:10px;cursor:pointer;overflow:hidden;position:relative}
+  .ov:hover{border-color:var(--accent)}
+  .ov .n{font-family:var(--mono);font-size:10px;color:var(--dim);position:absolute;top:6px;left:8px}
+  .ov .t{font-family:var(--disp);font-weight:700;font-size:13px;color:var(--ink);
+    position:absolute;left:8px;right:8px;bottom:8px;line-height:1.1;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .ov .bar{position:absolute;top:0;left:0;height:3px;width:100%}
+
+  /* HELP hint */
+  #hint{position:fixed;bottom:8px;right:12px;font-family:var(--mono);font-size:11px;
+    color:#3a3d5c;z-index:40;letter-spacing:.1em}
+
+  @media (prefers-reduced-motion:reduce){
+    .slide{transition:opacity .15s linear;transform:none;filter:none}
+    #railnode{transition:left .15s linear,background .15s linear}
+  }
+
+  /* --- triptych (attacker / lanley / you) --- */
+  .slide.triptych{justify-content:flex-start}
+  .trip-head{display:flex;align-items:baseline;gap:1.4vw;margin:1vh 0 3vh}
+  .trip-num{font-family:var(--mono);font-size:3vw;color:var(--accent);opacity:.55}
+  .trip-principle{font-family:var(--disp);font-size:4.4vw;font-weight:700;line-height:1}
+  .trip-cols{display:flex;gap:1.6vw;width:100%;flex:1;align-items:stretch;max-height:64vh}
+  .trip-col{flex:1;display:flex;flex-direction:column;gap:1.4vh;padding:2.6vh 1.6vw;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09)}
+  .trip-role{font-family:var(--mono);font-size:1.05vw;letter-spacing:.18em;color:var(--dim)}
+  .trip-txt{font-family:var(--body);font-size:1.55vw;line-height:1.35;color:var(--ink)}
+  .trip-txt .glow{color:var(--accent)}
+  .trip-col.you{background:color-mix(in srgb,var(--accent) 16%,transparent);border-color:var(--accent)}
+  .trip-col.you .trip-role{color:var(--accent)}
+  .trip-col.you .trip-txt{font-weight:600}
+  /* --- 4:3 frame for Simpsons stills --- */
+  .viewport.r43{flex:0 0 auto;aspect-ratio:4/3;height:56vh;width:auto;max-width:86%;margin:0 auto}
+  /* triptych per-box focus (extra slides) */
+  .triptych[data-focus] .trip-col{opacity:.2;transition:opacity .25s}
+  .triptych[data-focus="attacker"] .trip-col.attacker,
+  .triptych[data-focus="lanley"] .trip-col.lanley,
+  .triptych[data-focus="you"] .trip-col.you{opacity:1}
+  .slide.tight .line{font-size:4.2vw}
+  .slide.tight .line.small{font-size:3.8vw;max-width:44ch}
+  .slide.thesis.tight .line{font-size:4.4vw}
+  .slide.xtight .line{font-size:3.8vw}
+  .slide.xtight .line.small{font-size:3.6vw;max-width:44ch}
+  .slide.thesis.xtight .line{font-size:4.6vw}
+  .line .c1{color:var(--past)!important} .line .c2{color:var(--present)!important} .line .c3{color:var(--future)!important}
+  .viewport.fit{flex:0 0 auto;aspect-ratio:auto;height:auto;width:auto;max-width:92%;min-height:36vh;margin:0 auto;background:rgba(255,255,255,.02)}
+  .fitimg{position:relative;display:block;max-height:56vh;max-width:100%;width:auto;height:auto;margin:0 auto;background:var(--bg)}
+  /* PREVIEW: Akbar on all main text — remove this rule to revert */
+  .line{font-family:'Akbar',var(--disp)}
+  .slide.duo .duo-wrap{display:flex;gap:2vw;width:100%;flex:1;align-items:stretch}
+  .duo-cell{flex:1;display:flex;flex-direction:column;gap:1.4vh;min-width:0}
+  .duo-cell .viewport{flex:1;min-height:42vh}
+  .duo-cell .img-cap{font-size:1.3vw;margin-top:.6vh}
+
+  /* --- TABLE (attacker / tech / cultural reframe) --- */
+  .slide.table{padding:6% 8% 12%}
+  .slide.table .tabletitle{font-family:var(--disp);font-weight:800;font-size:2.8vw;max-width:26ch;margin-bottom:1.8vw}
+  .dtable{display:grid;grid-template-columns:1.05fr 1fr 1.15fr;width:100%;font-family:var(--body);
+    border:1px solid var(--rail);border-radius:10px;overflow:hidden}
+  .dtable .th{font-family:var(--mono);font-size:1.0vw;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:700;color:var(--bg);background:var(--accent);padding:1.0vw 1.2vw}
+  .dtable .td{font-size:1.4vw;line-height:1.28;color:var(--ink);padding:1.0vw 1.2vw;border-top:1px solid var(--rail)}
+  .dtable .td.reframe{color:var(--accent);font-weight:600}
+
+  /* --- SPLIT (text left, still right) --- */
+  .slide.split{padding:6% 7% 11%}
+  .split-wrap{display:flex;gap:3vw;width:100%;flex:1;align-items:center}
+  .split-left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  .split-right{flex:1;min-width:0;display:flex;align-items:center;justify-content:center}
+  .split-right .viewport{width:100%;aspect-ratio:4/3;max-height:66vh}
+  .slide.split .line{font-size:3.6vw;max-width:15ch}
+  .slide.split .sub{font-size:1.45vw;max-width:34ch;margin-top:1.8vw}
+
+  /* --- title yellow --- */
+  .slide.title .line{color:#FED90F}
+
+  /* --- image placeholder fit: fill remaining space, never clip the eyebrow --- */
+  .viewport.r43{flex:1 1 0;min-height:0;height:auto;aspect-ratio:4/3;width:auto;max-width:84%;max-height:52vh;margin:0 auto}
+  .img-cap{margin-top:1.1vw}
+
+  /* --- LIME THEME (press T) --- */
+  html.theme-lime{
+    --bg:#000; --bg2:#0a0b07; --ink:#F4F7EC; --dim:#79855f;
+    --past:#C6F24E; --present:#C6F24E; --future:#C6F24E; --rail:#26301a;
+  }
+  html.theme-lime #canvas{
+    background:radial-gradient(120% 90% at 50% -10%, #0e1108 0%, var(--bg) 55%, #000 100%);
+  }
+  html.theme-lime .dtable .th{color:#000}
+  html.theme-lime .trip-col.you{background:color-mix(in srgb,var(--accent) 14%,#000)}
+  .pq{margin:0 .035em}
+  #note{max-height:82vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="canvas">
+    <div id="slides"></div>
+    <div id="note"></div>
+    <div id="rail">
+      <span class="railmeta" id="era">THE PAST</span>
+      <div id="railtrack"><div id="railticks"></div><div id="railnode"></div></div>
+      <span class="railmeta" id="counter">01 / 01</span>
+    </div>
+  </div>
+</div>
+<div id="overview"></div>
+<div id="hint">→ next · ← back · F full · N notes · O grid · T theme · P present · B blank</div>
+
+<script>
+/* ============================ SLIDES ============================ */
+const ERA = {
+  1:{label:'THE HOOK \u00b7 the rent is too damn high', accent:'var(--past)'},
+  2:{label:'THE PITCH \u00b7 the Lanley levers',        accent:'var(--future)'},
+  3:{label:'THE WARNING \u00b7 the apathy engine',      accent:'var(--present)'},
+  4:{label:'THE CLOSE \u00b7 culture is the anchor',    accent:'var(--past)'}
+};
+
+const SLIDES = [
+  /* ============ ACT 1 — THE HOOK ============ */
+  {act:1,kind:'title',akbar:true,kicker:'BSIDES BRISBANE 2026',
+   line:['THE HONEST','CONMAN'],
+   sub:'The Lyle Lanley Guide to Building Security Culture',
+   meta:'Malcolm Gregory',
+   note:''},
+
+  {act:1,kind:'image',r43:true,img:'assets/intro.gif',imgLabel:'INTRO',eyebrow:'Who\u2019s talking',
+   line:'One person. The entire security team. Wrangling a whole org.',
+   cap:'\u201cThe angel on my staff\u2019s shoulder \u2014 but I\u2019ll take being the devil, if it keeps them doing right by me.\u201d',
+   note:''},
+
+  {act:1,kind:'thesis',tight:true,eyebrow:'Why you\u2019re here',
+   line:['Give me 30 minutes.',['A few real ways to get your people onside.','glow']],
+   sub:'Not a product to buy. Not a framework to roll out. And I\u2019m not selling anything.',
+   note:''},
+
+  {act:1,kind:'stmt',tight:true,eyebrow:'The setup',
+   line:['We can name every psychological lever',['an attacker pulls.','glow']],
+   sub:'Reciprocity, trust, urgency, relevance \u2014 we can name every lever the attacker pulls. We know exactly how the human brain gets hacked.'},
+
+  {act:1,kind:'thesis',tight:true,eyebrow:'Then we walk back to our desks',
+   line:['And try to change people\u2019s behaviour',['with a 40-page policy PDF.','glow']],
+   note:''},
+
+  {act:1,kind:'thesis',tight:true,eyebrow:'The reframe',
+   line:['Every lever the attacker uses is available to us.','Used in the open, that is not manipulation.',['That is the job.','glow']],
+   note:''},
+
+  {act:1,kind:'split',eyebrow:'The current situation',
+   line:'\u201cA mule with a spinning wheel.\u201d',
+   sub:'Millions in the stack. The human interface left completely unpatched. We treat awareness as a tax, not infrastructure.',
+   img:'assets/mule.gif',imgLabel:'THE MULE',
+   note:''},
+
+  {act:1,kind:'image',r43:true,img:'assets/heh_mule.gif',imgLabel:'THE MULE',eyebrow:'And that mule is us',
+   line:'A pile of budget. No idea how to use it.',
+   cap:'Every blinking box on the market \u2014 and the human interface still completely unpatched.',
+   note:''},
+
+  {act:1,kind:'thesis',tight:true,eyebrow:'The rent is too damn high',
+   line:['Stop paying rent.',['Start living rent-free in their heads.','glow']],
+   note:''},
+
+  {act:1,kind:'stmt',tight:true,rail:'THE HOOK \u00b7 2023, at the helpdesk',eyebrow:'Scattered Spider',
+   line:['Casino empires. Retail giants.',['No zero-days.','glow']],
+   sub:'They ran the classic Homer Simpson playbook.',
+   note:''},
+
+  {act:1,kind:'image',r43:true,img:'assets/homer_post_office.gif',imgLabel:'POST OFFICE \u2014 \u201cwhat\u2019s your first name?\u201d',
+   rail:'THE HOOK \u00b7 2023, at the helpdesk',eyebrow:'Identity, cartoon-style',
+   line:'\u201cHello, my name is Mr. Burns.\u201d',
+   cap:'The clerk tried to verify the identity. Your helpdesk often doesn\u2019t.',
+   note:''},
+
+  {act:1,kind:'split',rail:'THE HOOK \u00b7 2023, at the helpdesk',eyebrow:'Same routine, your helpdesk',
+   line:['\u201cI broke my phone, I\u2019m on deadline \u2014',['reset my MFA right now.\u201d','glow']],
+   sub:'Scraped from LinkedIn. A frantic performance. Your helpdesk is Moe \u2014 it reacts to the story and the urgency, and never checks the name.',
+   img:'assets/moe_prank.gif',imgLabel:'MOE \u2014 never checks the name',
+   note:''},
+
+  {act:1,kind:'thesis',tight:true,rail:'THE HOOK \u00b7 2023, at the helpdesk',eyebrow:'The real exploit',
+   line:['They don\u2019t exploit code.',['They exploit the desire to be helpful.','glow']],
+   sub:'If your defence is a policy nobody\u2019s read since onboarding, the cartoon version of identity verification wins every time.'},
+
+  {act:1,kind:'image',r43:true,img:'assets/wallet_inspector.gif',imgLabel:'\u201cWALLET INSPECTOR\u201d',eyebrow:'Pretext',
+   line:'\u201cI\u2019m the wallet inspector.\u201d',
+   cap:'Sound official enough and people hand it straight over. That\u2019s the whole exploit.',
+   note:''},
+
+  /* ============ ACT 2 — THE PITCH & THE LEVERS ============ */
+  {act:2,kind:'image',r43:true,img:'assets/lanley-pitch.gif',imgLabel:'LANLEY \u2014 mid-pitch',eyebrow:'The town meeting',
+   line:'No blueprints. No engineering specs. A catchy tune and social proof.',
+   cap:'He didn\u2019t say it was technically superior \u2014 he said other successful towns bought it.',
+   note:''},
+
+  {act:2,kind:'thesis',tight:true,eyebrow:'The flip',
+   line:['Same levers.',['Used to build an eviction-proof culture.','glow']],
+   note:''},
+
+  {act:2,kind:'levers',eyebrow:'The Lanley levers',
+   levers:['Reciprocity','Social proof','Authority'],
+   sub:'A few of Cialdini\u2019s principles, turned to your side.'},
+
+  {act:2,kind:'triptych',steps:true,num:'1',principle:'Reciprocity',eyebrow:'The Lanley levers',
+   attacker:'A \u201cfree gift card\u201d \u2192 your credentials.',
+   lanley:['\u201cTake my pen knife, my good man!\u201d',['an instant little debt.','glow']],
+   you:'Give value first. A premium password manager or a security key for people\u2019s families, at home. Protect their personal lives \u2014 they\u2019ll gladly return the favour and protect the enterprise.'},
+
+  {act:2,kind:'image',r43:true,img:'assets/flanders.gif',imgLabel:'FLANDERS \u2014 the good neighbour',eyebrow:'Give value first',
+   line:'Be the neighbour who gives first.',
+   cap:'Flanders banks goodwill for years \u2014 then the whole town turns out to save his Leftorium. Give staff real protection at home; they cover you at work.',
+   note:''},
+
+  {act:2,kind:'triptych',steps:true,num:'2',principle:'Social proof',eyebrow:'The Lanley levers',
+   attacker:'\u201c90% of your team already signed.\u201d',
+   lanley:['Manufacture the FOMO \u2014',['nobody wants to be the town left behind.','glow']],
+   you:'Turn the stats around. Not \u201815% failed and clicked the link\u2019 \u2014 \u201885% passed and reported the phishing test.\u2019 Publish that. Make security the club everyone wants in.',
+   note:''},
+
+  {act:2,kind:'image',img:'assets/dashboard.png',imgLabel:'BUSINESS-UNIT DASHBOARD',eyebrow:'Make it a contest',
+   line:'Vulnerabilities, by business unit.',
+   cap:'Nobody wants to be bottom of the board. Social proof, made visible.',
+   note:''},
+
+  {act:2,kind:'triptych',steps:true,num:'3',principle:'Authority + liking',eyebrow:'The Lanley levers',
+   attacker:'Spoof the CEO.',
+   lanley:['Bright suit, piano, charisma \u2014',['trust the vibe before the credentials.','glow']],
+   you:'Stop being the Department of No behind a ticket queue. Show up to meetings, demystify what you do, build brand equity. Have a \u201ccatchy song\u201d \u2014 then people default to trusting your guidance in a crisis.'},
+
+  {act:2,kind:'image',r43:true,img:'assets/mr_plow.gif',imgLabel:'MR. PLOW',eyebrow:'Build brand equity',
+   line:'Have a catchy song. Burrow into their heads.',
+   cap:'Nobody audits Mr. Plow\u2019s credentials \u2014 the jacket and the jingle are the cred. Mine: \u201cthe carrot is avoiding the stick \u2014 don\u2019t want the training? Don\u2019t click the email.\u201d',
+   note:''},
+
+  /* ============ ACT 3 — THE APATHY ENGINE ============ */
+  {act:3,kind:'image',r43:true,img:'assets/mono_mono.gif',imgLabel:'MONO\u2026 MONO\u2026',eyebrow:'Mono means one',
+   line:'\u201cMono means one, and rail means rail.\u201d',
+   cap:'Three-week course, shiny hat, walks away. Homer never understood the machine.',
+   note:''},
+
+  {act:3,kind:'stmt',tight:true,eyebrow:'What we do to our workforce',
+   line:['A 15-minute annual video.','A \u201cSecurity Champion\u201d badge.',['Passive button-pushers.','glow']],
+   sub:'We don\u2019t teach how human engineering works. We teach people to click to make it stop.'},
+
+  {act:3,kind:'image',r43:true,img:'assets/drinking-bird.gif',imgLabel:'THE DRINKING BIRD',eyebrow:'The apathy engine',
+   line:'Contextless prompts turn brains into a novelty drinking bird \u2014 pecking \u201cYes.\u201d',
+   cap:'Decision fatigue. Learned helplessness. Approve just to clear the screen.',
+   note:''},
+
+  {act:3,kind:'stmt',tight:true,eyebrow:'MFA fatigue',
+   line:['40 pushes at 3am.',['Then a \u201chelpful\u201d call to clear the queue.','glow']],
+   sub:'They didn\u2019t threaten. They weaponised the desire for peace and quiet \u2014 and guided the finger to the button.',
+   note:''},
+
+  {act:3,kind:'map',eyebrow:'Scattered Spider',img:'assets/map.gif',imgLabel:'THE MAP',
+   maptitle:'Lanley had a map. So does Scattered Spider.',pins:3,
+   note:''},
+
+  {act:3,kind:'image',r43:true,img:'assets/caesars.gif',imgLabel:'CAESARS \u2014 pay it away',eyebrow:'Two casinos, two choices',
+   line:'Caesars paid. MGM didn\u2019t.',
+   cap:'Caesars quietly negotiated a reported ~$15M (half a $30M demand) and kept the lights on. MGM refused \u2014 roughly ten days of outage and a ~$100M hit.',
+   note:''},
+
+  {act:3,kind:'table',eyebrow:'Scattered Spider vs. the stack',
+   tabletitle:'The reflex is to buy a tool.',
+   cols:['Attacker tactic','The tech response','The cultural reframe'],
+   rows:[
+     ['MFA push bombing','Number matching','Celebrating the \u201creject\u201d'],
+     ['Internal social engineering','Slack logging','Psychological safety to report'],
+     ['SIM swapping','Carrier locks','Secondary out-of-band auth'],
+     ['Phishing','AI email security gateway','Slow down, validate, read']
+   ],
+   note:''},
+
+  {act:3,kind:'thesis',tight:true,eyebrow:'The shift',
+   line:['Change the person,',['not just the prompt.','glow']],
+   sub:'Celebrate the Reject. Make stepping back and running an identity check \u2014 even on \u201cthe CEO\u201d \u2014 expected, not awkward.',
+   note:''},
+
+  /* ============ ACT 4 — THE RUNAWAY TRAIN & THE CLOSE ============ */
+  {act:4,kind:'image',r43:true,img:'assets/runaway-train.gif',imgLabel:'THE RUNAWAY MONORAIL',
+   rail:'THE CLOSE \u00b7 the runaway train',eyebrow:'When the tech fails',
+   line:'Lanley took the cash and flew to Tahiti. The train became a runaway.',
+   cap:'The flashy blueprints were completely useless.',
+   note:''},
+
+  {act:4,kind:'stmt',tight:true,rail:'THE CLOSE \u00b7 the runaway train',eyebrow:'They\u2019re already inside',
+   line:['Firewalls didn\u2019t stop them.','They\u2019re in your Slack, watching your incident response.',['The train is runaway.','glow']],
+   sub:'At that moment, a 40-page policy cannot stop the momentum. Neither can the compliance dashboard.'},
+
+  {act:4,kind:'thesis',tight:true,rail:'THE CLOSE \u00b7 culture is the anchor',eyebrow:'Your only anchor',
+   line:['Your only anchor',['is your culture.','glow']],
+   note:''},
+
+  {act:4,kind:'image',r43:true,img:'assets/anchor.gif',imgLabel:'THE ANCHOR',
+   rail:'THE CLOSE \u00b7 culture is the anchor',eyebrow:'What actually stops it',
+   line:'One employee stops \u2014 and pulls the brake.',
+   cap:'That human intervention is the only thing that stops the derailment.',
+   note:''},
+
+  {act:4,kind:'stmt',tight:true,rail:'THE CLOSE \u00b7 your sales script',eyebrow:'Monday\u2019s sales script \u00b7 1',
+   line:['Identity over comfort.'],
+   sub:'Give the helpdesk the social backing to enforce verification. The default reflex, baked into culture: \u201cLet\u2019s run the protocol.\u201d'},
+
+  {act:4,kind:'image',r43:true,img:'assets/guy_incognito.gif',rail:'THE CLOSE \u00b7 your sales script',imgLabel:'GUY INCOGNITO',eyebrow:'Identity over comfort \u00b7 example',
+   line:'They were sure. They were wrong.',
+   cap:'Moe\u2019s crowd clobbered a total stranger \u2014 certain he was Homer in a disguise. Verify identity before you act on it, especially when you\u2019re certain.',
+   note:''},
+
+  {act:4,kind:'stmt',tight:true,rail:'THE CLOSE \u00b7 your sales script',eyebrow:'Monday\u2019s sales script \u00b7 2',
+   line:['Build cognitive speedbumps.'],
+   sub:'Explain the con. Show people how helpfulness gets exploited, so they recognise the trap before they hit approve.'},
+
+  {act:4,kind:'image',r43:true,img:'assets/lisa_skeptic.gif',rail:'THE CLOSE \u00b7 your sales script',imgLabel:'LISA THE SKEPTIC',eyebrow:'Cognitive speedbumps \u00b7 example',
+   line:'Slow down. Validate the claim.',
+   cap:'The whole town believed the \u201cangel\u201d instantly \u2014 Lisa didn\u2019t. It was a mall advert. The urgent, too-good, too-scary claim is the one to slow down on.',
+   note:''},
+
+  {act:4,kind:'image',img:'assets/prezzee.png',rail:'THE CLOSE \u00b7 your sales script',imgLabel:'THE ONE I SENT',eyebrow:'I did this to my staff',
+   line:'A gift card. From \u201cyour manager.\u201d At Christmas.',
+   cap:'A thank-you for the year\u2019s work \u2014 and a phishing sim. Consented, no shame. Now we actually talk about it.',
+   note:''},
+
+  {act:4,kind:'stmt',tight:true,rail:'THE CLOSE \u00b7 your sales script',eyebrow:'Monday\u2019s sales script \u00b7 3',
+   line:['Create a hero culture.'],
+   sub:'Ditch fear-based compliance. Someone catches a social-engineering attempt? Highlight them publicly. Make vigilance the thing that makes you a hero.'},
+
+  {act:4,kind:'image',r43:true,img:'assets/safety_salamander.gif',rail:'THE CLOSE \u00b7 your sales script',imgLabel:'SAFETY SALAMANDER',eyebrow:'Hero culture \u00b7 example',
+   line:'Make the defender the hero.',
+   cap:'Homer as the Safety Salamander \u2014 beloved, cheered, chanted for. Give the person who reports the phish the applause, not the eye-roll.',
+   note:''},
+
+  {act:4,kind:'thesis',tight:true,eyebrow:'Living rent-free',
+   line:['Lanley\u2019s train was a sham.',['Ours is real.','glow']],
+   sub:'The data, the infrastructure, the people \u2014 all real. Human psychology is the ultimate admin access. Take back the real estate.'},
+
+  {act:4,kind:'final',akbar:true,line:'WHAT\u2019S IT CALLED?',
+   note:''},
+
+  {act:4,kind:'final',akbar:true,line:[['SECURITY!','glow']],
+   note:''},
+
+  {act:4,kind:'split',eyebrow:'Thanks',
+   line:'Thank you, BSides!',
+   sub:'Sources: Cialdini, \u201cInfluence\u201d \u00b7 Scattered Spider (CISA AA23-320A) \u00b7 MGM, Caesars & Clorox, 2023 \u00b7 The Simpsons \u00a9 Disney \u00b7 stills via Frinkiac.',
+   img:'assets/linkedin_qr.gif',imgLabel:'LINKEDIN QR',
+   note:''}
+];
+
+/* the locked roster the map reveals, in order */
+const ROSTER = [
+  {yr:'2023', who:'MGM Resorts'},
+  {yr:'2023', who:'Caesars'},
+  {yr:'2023', who:'Clorox'}
+];
+
+/* ============================ ENGINE ============================ */
+const root=document.documentElement;
+const slidesEl=document.getElementById('slides');
+const noteEl=document.getElementById('note');
+const eraEl=document.getElementById('era');
+const counterEl=document.getElementById('counter');
+const node=document.getElementById('railnode');
+const ticks=document.getElementById('railticks');
+const overview=document.getElementById('overview');
+let i=0, notesOn=false;
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* render a 'line': string, or array of (string | [string,'glow']) — one <br> per item */
+function pq(h){return h.replace(/([\u2018\u2019\u201c\u201d'])/g,'<span class="pq">$1</span>');}
+function lineHTML(line){
+  if(!Array.isArray(line)) return pq(esc(line));
+  return line.map(p=>Array.isArray(p)
+    ? '<span class="'+esc(p[1]||'glow')+'">'+pq(esc(p[0]))+'</span>'
+    : pq(esc(p))).join('<br>');
+}
+
+function buildSlide(s){
+  const el=document.createElement('div');
+  el.className='slide '+s.kind+(s.tight?' tight':'')+(s.xtight?' xtight':'');
+  if(s._focus) el.dataset.focus=s._focus;
+  let h='';
+
+  if(s.year) h+=`<div class="yearstamp">${esc(s.year)}</div>`;
+  if(s.eyebrow) h+=`<div class="eyebrow">${esc(s.eyebrow)}</div>`;
+
+  if(s.kind==='title'){
+    h+=`<div class="kicker">${esc(s.kicker||'')}</div>`;
+    h+=`<div class="line${s.akbar?' akbar':''}">${lineHTML(s.line)}</div>`;
+    if(s.sub) h+=`<div class="sub">${esc(s.sub)}</div>`;
+    if(s.meta) h+=`<div class="meta">${esc(s.meta)}</div>`;
+  }
+  else if(s.kind==='image'){
+    h+=`<div class="viewport${s.r43?' r43':''}${s.fit?' fit':''}">`;
+    h+=`<div class="ph"><div class="play">&#9654;</div>`+
+       `<div class="lbl">${esc(s.imgLabel||'STILL')}</div>`+
+       `<div class="hint">[ drop still here ]</div></div>`;
+    if(s.img){ h+= s.fit ? `<img src="${esc(s.img)}" alt="" class="fitimg" onload="var p=this.previousElementSibling; if(p&&p.classList.contains('ph'))p.style.display='none'" onerror="this.remove()">` : `<img src="${esc(s.img)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain" onload="var p=this.previousElementSibling; if(p&&p.classList.contains('ph'))p.style.display='none'" onerror="this.remove()">`; }
+    h+=`<div class="scan"></div></div>`;
+    if(s.line) h+=`<div class="img-cap">${lineHTML(s.line)}</div>`;
+    if(s.cap)  h+=`<div class="img-cap">${esc(s.cap)}</div>`;
+  }
+  else if(s.kind==='duo'){
+    const cell=(img,label,cap)=>`<div class="duo-cell"><div class="viewport${s.fit?' fit':''}">`+
+      `<div class="ph"><div class="play">&#9654;</div><div class="lbl">${esc(label||'STILL')}</div><div class="hint">[ drop here ]</div></div>`+
+      (img?(s.fit?`<img src="${esc(img)}" alt="" class="fitimg" onload="var p=this.previousElementSibling; if(p&&p.classList.contains('ph'))p.style.display='none'" onerror="this.remove()">`:`<img src="${esc(img)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain" onload="var p=this.previousElementSibling; if(p&&p.classList.contains('ph'))p.style.display='none'" onerror="this.remove()">`):'')+
+      `<div class="scan"></div></div>`+
+      (cap?`<div class="img-cap">${lineHTML(cap)}</div>`:'')+`</div>`;
+    h+=`<div class="duo-wrap">`+cell(s.img1,s.label1,s.cap1)+cell(s.img2,s.label2,s.cap2)+`</div>`;
+  }
+  else if(s.kind==='levers'){
+    h+=`<div class="levergrid">`+
+       s.levers.map(l=>`<span class="lever">${esc(l)}<span class="dot">.</span></span>`).join('')+
+       `</div>`;
+    if(s.sub) h+=`<div class="sub">${esc(s.sub)}</div>`;
+  }
+  else if(s.kind==='map'){
+    h+=`<div class="maptitle">${esc(s.maptitle)}</div>`;
+    const pins=()=>{let x='<div class="maprows">';ROSTER.forEach((r,idx)=>{const lit=idx<s.pins?' lit':'';x+=`<div class="pin${lit}"><span class="dot"></span>${r.yr?`<span class="yr">${esc(r.yr)}</span>`:``}<span class="who">${lineHTML(r.who)}</span></div>`;});return x+'</div>';};
+    if(s.img){
+      h+=`<div class="maprow-wrap"><div class="viewport">`+
+         `<div class="ph"><div class="play">&#9654;</div><div class="lbl">${esc(s.imgLabel||'MAP')}</div><div class="hint">[ drop map here ]</div></div>`+
+         `<img src="${esc(s.img)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain" onload="var p=this.previousElementSibling; if(p&&p.classList.contains('ph'))p.style.display='none'" onerror="this.remove()">`+
+         `<div class="scan"></div></div>`+pins()+`</div>`;
+    }else{
+      h+=pins();
+    }
+  }
+  else if(s.kind==='triptych'){
+    h+=`<div class="trip-head"><span class="trip-num">${esc(s.num||'')}</span><span class="trip-principle">${esc(s.principle||'')}</span></div>`;
+    const col=(label,txt,role)=>`<div class="trip-col ${role}"><div class="trip-role">${esc(label)}</div><div class="trip-txt">${lineHTML(txt)}</div></div>`;
+    h+=`<div class="trip-cols">`+col('ATTACKER',s.attacker,'attacker')+col('LANLEY',s.lanley,'lanley')+col('YOU',s.you,'you')+`</div>`;
+  }
+  else if(s.kind==='split'){
+    h+=`<div class="split-wrap"><div class="split-left">`;
+    h+=`<div class="line${s.akbar?' akbar':''}">${lineHTML(s.line)}</div>`;
+    if(s.sub) h+=`<div class="sub">${esc(s.sub)}</div>`;
+    h+=`</div><div class="split-right"><div class="viewport">`;
+    h+=`<div class="ph"><div class="play">&#9654;</div><div class="lbl">${esc(s.imgLabel||'STILL')}</div><div class="hint">[ drop still here ]</div></div>`;
+    if(s.img) h+=`<img src="${esc(s.img)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain" onload="var p=this.previousElementSibling; if(p&&p.classList.contains('ph'))p.style.display='none'" onerror="this.remove()">`;
+    h+=`<div class="scan"></div></div></div></div>`;
+  }
+  else if(s.kind==='table'){
+    if(s.tabletitle) h+=`<div class="tabletitle">${esc(s.tabletitle)}</div>`;
+    h+=`<div class="dtable">`;
+    s.cols.forEach(c=>{h+=`<div class="th">${esc(c)}</div>`;});
+    s.rows.forEach(r=>{h+=`<div class="td">${esc(r[0])}</div><div class="td">${esc(r[1])}</div><div class="td reframe">${esc(r[2])}</div>`;});
+    h+=`</div>`;
+  }
+  else{ /* stmt | thesis | final */
+    const cls=(typeof s.line==='string'&&s.line.length>90)?'line small':'line';
+    h+=`<div class="${cls}${s.akbar?' akbar':''}">${lineHTML(s.line)}</div>`;
+    if(s.sub) h+=`<div class="sub">${esc(s.sub)}</div>`;
+  }
+
+  el.innerHTML=h;
+  return el;
+}
+
+const DECK = SLIDES.flatMap(s =>
+  (s.kind==='triptych' && s.steps)
+    ? ['attacker','lanley','you'].map(f=>Object.assign({},s,{_focus:f}))
+    : [s]);
+DECK.forEach(s=>slidesEl.appendChild(buildSlide(s)));
+const slideEls=[...slidesEl.children];
+
+/* rail ticks = one per act boundary-ish; keep simple: 24 evenly */
+for(let t=0;t<24;t++){ticks.appendChild(document.createElement('i'));}
+
+function show(n){
+  i=Math.max(0,Math.min(DECK.length-1,n));
+  slideEls.forEach((el,idx)=>el.classList.toggle('active',idx===i));
+  const s=DECK[i];
+  const era=ERA[s.act];
+  root.style.setProperty('--accent',era.accent);
+  eraEl.textContent=s.rail||era.label;
+  counterEl.textContent=String(i+1).padStart(2,'0')+' / '+String(DECK.length).padStart(2,'0');
+  node.style.left=(DECK.length>1?(i/(DECK.length-1))*100:0)+'%';
+  // speaker note
+  var _n=(typeof NOTES!=='undefined'&&NOTES[i+1])?NOTES[i+1]:s.note; if(_n){noteEl.innerHTML=_n;}else{noteEl.innerHTML='<span style="color:var(--dim)">— no note —</span>';}
+  noteEl.classList.toggle('show',notesOn);
+  if(typeof pushPresenter==='function')pushPresenter();
+}
+
+function next(){show(i+1);}
+function prev(){show(i-1);}
+
+document.addEventListener('keydown',e=>{
+  if(overview.classList.contains('show')&&e.key!=='o'&&e.key!=='O'&&e.key!=='Escape')return;
+  switch(e.key){
+    case 'ArrowRight':case ' ':case 'PageDown':e.preventDefault();next();break;
+    case 'ArrowLeft':case 'PageUp':e.preventDefault();prev();break;
+    case 'Home':show(0);break;
+    case 'End':show(DECK.length-1);break;
+    case 'f':case 'F':toggleFull();break;
+    case 'n':case 'N':notesOn=!notesOn;noteEl.classList.toggle('show',notesOn);break;
+    case 'o':case 'O':case 'Escape':toggleOverview();break;
+    case 't':case 'T':document.documentElement.classList.toggle('theme-lime');break;
+    case 'p':case 'P':openPresenter();break;
+    case 'b':case 'B':case '.':e.preventDefault();toggleBlank();break;
+  }
+});
+document.getElementById('canvas').addEventListener('click',e=>{
+  if(e.clientX < window.innerWidth*0.18) prev(); else next();
+});
+
+function toggleFull(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+}
+
+function buildOverview(){
+  overview.innerHTML='';
+  DECK.forEach((s,idx)=>{
+    const d=document.createElement('div');
+    d.className='ov';
+    const acc=ERA[s.act].accent;
+    const title=s.kind==='levers'?s.levers.join(' · ')
+      :s.kind==='table'?(s.tabletitle||'table')
+      :s.kind==='map'?s.maptitle
+      :s.kind==='image'?(s.imgLabel||'image')
+      :(Array.isArray(s.line)?s.line.map(p=>Array.isArray(p)?p[0]:p).join(' '):s.line);
+    d.innerHTML=`<div class="bar" style="background:${acc}"></div>`+
+      `<div class="n">${String(idx+1).padStart(2,'0')}</div>`+
+      `<div class="t">${esc(title)}</div>`;
+    d.onclick=()=>{show(idx);toggleOverview();};
+    overview.appendChild(d);
+  });
+}
+function toggleOverview(){
+  if(!overview.children.length) buildOverview();
+  overview.classList.toggle('show');
+}
+
+const PRESENTER_DOC = `<!doctype html><html><head><meta charset="utf-8"><title>Presenter — The Honest Conman</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:#0b0d16;color:#f4f7ec;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;padding:2.4vh 2.4vw;gap:1.5vh}
+.bar{display:flex;align-items:center;justify-content:space-between}
+.rail{font-size:1.6vh;letter-spacing:.16em;text-transform:uppercase;color:#8a93a6}
+.count{font-size:2.2vh;color:#8a93a6;font-variant-numeric:tabular-nums}
+.timer{font-size:3.4vh;font-weight:700;font-variant-numeric:tabular-nums}
+.timer.warn{color:#F2A641}.timer.over{color:#ff5a5a}
+.cur{border-left:5px solid var(--acc,#F2A641);padding-left:1.4vw}
+.lbl{font-size:1.35vh;letter-spacing:.2em;text-transform:uppercase;color:#8a93a6;margin-bottom:.5vh}
+.title{font-size:4.6vh;font-weight:800;line-height:1.08}
+.note{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;font-size:3.1vh;line-height:1.5;background:#12151f;border-radius:12px;padding:2.2vh 2vw}
+.next{font-size:2.3vh;color:#aab2c2}
+.next b{color:#f4f7ec}
+.ctl{display:flex;gap:.7vw;align-items:center;flex-wrap:wrap}
+button{background:#1b1f2c;color:#f4f7ec;border:1px solid #2b3142;border-radius:8px;padding:1vh 1.2vw;font-size:1.9vh;cursor:pointer}
+button:hover{border-color:var(--acc,#F2A641)}
+.hint{font-size:1.5vh;color:#6b7488;margin-left:auto}
+</style></head><body>
+<div class="bar"><span class="rail" id="rail">—</span><span class="count" id="count">— / —</span><span class="timer" id="timer">00:00</span></div>
+<div class="cur"><div class="lbl">Now</div><div class="title" id="title">—</div></div>
+<div class="lbl">Notes</div>
+<div class="note" id="note">—</div>
+<div class="next"><span class="lbl" style="display:inline-block">Next →</span> <b id="next">—</b></div>
+<div class="ctl">
+<button onclick="cmd('prev')">◀ Prev</button>
+<button onclick="cmd('next')">Next ▶</button>
+<button onclick="tstart()">Start</button>
+<button onclick="tpause()">Pause</button>
+<button onclick="treset()">Reset</button>
+<span class="hint">Space / → advance · B blank · R reset timer</span>
+</div>
+<script>
+var t0=null,acc=0,run=false;
+function fmt(ms){ms=Math.max(0,ms);var s=Math.floor(ms/1000),m=Math.floor(s/60);s=s%60;return (m<10?"0":"")+m+":"+(s<10?"0":"")+s;}
+function tick(){var ms=acc+(run&&t0?Date.now()-t0:0);var el=document.getElementById("timer");el.textContent=fmt(ms);var mn=ms/60000;el.className="timer"+(mn>=30?" over":(mn>=25?" warn":""));}
+function tstart(){if(!run){t0=Date.now();run=true;}}
+function tpause(){if(run){acc+=Date.now()-t0;run=false;t0=null;}}
+function treset(){acc=0;t0=run?Date.now():null;}
+setInterval(tick,250);tstart();
+function cmd(c){if(window.opener&&!window.opener.closed)window.opener.postMessage({cmd:c},"*");}
+document.addEventListener("keydown",function(e){switch(e.key){
+case "ArrowRight":case " ":case "PageDown":e.preventDefault();cmd("next");break;
+case "ArrowLeft":case "PageUp":e.preventDefault();cmd("prev");break;
+case "b":case "B":case ".":cmd("blank");break;
+case "r":case "R":treset();break;}});
+window.addEventListener("message",function(e){var d=e.data||{};if(d.type!=="state")return;
+document.documentElement.style.setProperty("--acc",d.accent||"#F2A641");
+document.getElementById("rail").textContent=d.rail||"";
+document.getElementById("count").textContent=d.idx+" / "+d.total;
+document.getElementById("title").textContent=d.title||"";
+document.getElementById("note").innerHTML=d.note?d.note:'';
+document.getElementById("next").textContent=d.nextTitle||"";});
+if(window.opener&&!window.opener.closed)window.opener.postMessage({cmd:"ready"},"*");
+<\/script>
+</body></html>`;
+
+/* ---- presenter view + blank screen ---- */
+var presWin=null, blankEl=null;
+function slideTitle(s){
+  var f=function(l){return Array.isArray(l)?l.map(function(p){return Array.isArray(p)?p[0]:p;}).join(' '):l;};
+  return s.kind==='levers'?s.levers.join(' · ')
+    :s.kind==='table'?(s.tabletitle||'table')
+    :s.kind==='map'?(s.maptitle||'map')
+    :s.kind==='image'?(s.imgLabel||'image')
+    :(f(s.line)||s.eyebrow||'');
+}
+function resolvedAccent(){
+  var t=document.createElement('span');t.style.cssText='position:absolute;opacity:0;color:var(--accent)';
+  document.body.appendChild(t);var c=getComputedStyle(t).color;t.remove();return c;
+}
+function pushPresenter(){
+  if(!presWin||presWin.closed)return;
+  var s=DECK[i],era=ERA[s.act],ns=DECK[i+1];
+  presWin.postMessage({type:'state',idx:i+1,total:DECK.length,rail:(s.rail||era.label),accent:resolvedAccent(),title:slideTitle(s),note:((typeof NOTES!=='undefined'&&NOTES[i+1])||s.note||''),nextTitle:ns?slideTitle(ns):'— end of deck —'},'*');
+}
+function openPresenter(){
+  if(presWin&&!presWin.closed){presWin.focus();return;}
+  presWin=window.open('','honestconman_presenter','width=920,height=700');
+  if(!presWin){alert('Presenter window blocked — allow pop-ups for this page, then press P again.');return;}
+  presWin.document.open();presWin.document.write(PRESENTER_DOC);presWin.document.close();
+  setTimeout(pushPresenter,300);
+}
+function toggleBlank(){
+  if(!blankEl){blankEl=document.createElement('div');blankEl.style.cssText='position:fixed;inset:0;background:#000;z-index:99999;display:none';document.body.appendChild(blankEl);}
+  blankEl.style.display=(blankEl.style.display==='none')?'block':'none';
+}
+window.addEventListener('message',function(e){
+  var c=(e.data||{}).cmd;
+  if(c==='next')next();else if(c==='prev')prev();else if(c==='blank')toggleBlank();else if(c==='ready')pushPresenter();
+});
+
+const NOTES = {};
+show(0);
+</script>
+</body>
+</html>
