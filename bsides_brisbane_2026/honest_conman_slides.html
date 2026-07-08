@@ -255,8 +255,8 @@ OFFLINE:     fonts load from Google. For conference wifi-free safety,
   .line .c1{color:var(--past)!important} .line .c2{color:var(--present)!important} .line .c3{color:var(--future)!important}
   .viewport.fit{flex:0 0 auto;aspect-ratio:auto;height:auto;width:auto;max-width:92%;min-height:36vh;margin:0 auto;background:rgba(255,255,255,.02)}
   .fitimg{position:relative;display:block;max-height:56vh;max-width:100%;width:auto;height:auto;margin:0 auto;background:var(--bg)}
-  /* PREVIEW: Akbar on all main text — remove this rule to revert */
-  .line{font-family:'Akbar',var(--disp)}
+  /* Main lines use the display face (Unbounded); Akbar applies only via .line.akbar */
+  .line{font-family:var(--disp)}
   .slide.duo .duo-wrap{display:flex;gap:2vw;width:100%;flex:1;align-items:stretch}
   .duo-cell{flex:1;display:flex;flex-direction:column;gap:1.4vh;min-width:0}
   .duo-cell .viewport{flex:1;min-height:42vh}
@@ -552,7 +552,7 @@ const SLIDES = [
 
   {act:4,kind:'split',eyebrow:'Thanks',
    line:'Thank you, BSides!',
-   sub:'Sources: Cialdini, \u201cInfluence\u201d \u00b7 Scattered Spider (CISA AA23-320A) \u00b7 MGM, Caesars & Clorox, 2023 \u00b7 The Simpsons \u00a9 Disney \u00b7 stills via Frinkiac.',
+   sub:'Sources: Cialdini, \u201cInfluence\u201d \u00b7 Scattered Spider (CISA AA23-320A) \u00b7 MGM, Caesars & Clorox, 2023 \u00b7 The Simpsons \u00a9 Disney \u00b7 stills via Frinkiac \u00b7 Akbar font by Jon Bernhardt: wobblymusic.com/groening/akbar.html',
    img:'assets/linkedin_qr.gif',imgLabel:'LINKEDIN QR',
    note:''}
 ];
